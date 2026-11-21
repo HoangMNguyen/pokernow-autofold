@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PokerNow Auto-Fold — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="page-head">
+    <img src="../assets/icon48.png" alt="" width="32" height="32">
+    <div>
+      <h1>PokerNow Auto-Fold settings</h1>
+      <p class="note">Changes apply from the next hand. Edit a range by typing the usual notation (<code>77+</code>, <code>A9s+</code>, <code>AJo+</code>, <code>KQ</code>, <code>A2s-A8s</code>, <code>54s-T9s</code>, separated by commas), by clicking or dragging on the chart, or with its "% of hands" slider. The slider's marks are your playbook's first 2, middle, cutoff and button ranges.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main>
+      <section aria-labelledby="ranges-title">
+        <h2 id="ranges-title">Ranges</h2>
+        <div id="ranges"></div>
+      </section>
+
+      <section aria-labelledby="bb-title" class="box">
+        <h2 id="bb-title">Big blind raise limit</h2>
+        <label class="inline" for="bbOpenMaxBB">
+          Defend the big blind against one raise of up to
+          <input type="number" id="bbOpenMaxBB" min="1" step="0.5" inputmode="decimal">
+          big blinds
+        </label>
+        <p class="hint">Larger raises are left to you.</p>
+        <p class="error" id="bbOpenMaxBB-error" hidden></p>
+      </section>
+
+      <div class="actions">
+        <button type="button" id="save" class="primary">Save</button>
+        <button type="button" id="reset">Reset to playbook defaults</button>
+        <span class="save-status" id="save-status" aria-live="polite"></span>
+      </div>
+
+      <section aria-labelledby="log-title" class="box">
+        <h2 id="log-title">Decision log</h2>
+        <p><span id="log-count">…</span> <span class="hint">(keeps the last 5,000)</span></p>
+        <div class="log-actions">
+          <button type="button" id="export">Export CSV</button>
+          <button type="button" id="clear" class="danger">Clear log</button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="grid-panel" aria-labelledby="grid-title">
+      <h2 id="grid-title">Hands in <span id="grid-key"></span></h2>
+      <p class="grid-summary" id="grid-summary"></p>
+      <div class="grid" id="grid" role="grid" aria-label="13 by 13 hand grid"></div>
+      <p class="hint legend"><span class="swatch in"></span> in range · upper right suited, lower left offsuit, diagonal pairs · click a hand to add or remove it, drag to paint</p>
+      <datalist id="slider-marks"></datalist>
+    </aside>
+  </div>
+
+  <script src="ranges.js"></script>
+  <script src="defaults.js"></script>
+  <script src="handrank.js"></script>
+  <script src="slider.js"></script>
+  <script src="storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

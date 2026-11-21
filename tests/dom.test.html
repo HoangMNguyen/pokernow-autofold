@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PNAF dom tests</title>
+<!-- Run: tests/run-dom-tests.sh (headless Chromium --dump-dom), or open this file in a browser. -->
+<script src="../src/dom.js"></script>
+<script src="fixtures/hero-turn-utg-unopened.js"></script>
+<script src="fixtures/hero-btn-facing-raise.js"></script>
+<script src="fixtures/hero-sb-facing-raise.js"></script>
+<script src="fixtures/hero-bb-facing-open.js"></script>
+<script src="fixtures/hero-bb-free-check.js"></script>
+<script src="fixtures/sb-free-check-host.js"></script>
+<script src="fixtures/hero-turn-facing-raise-2nd.js"></script>
+<script src="fixtures/hero-bb-oot-preactions.js"></script>
+<script src="fixtures/hero-oot-after-raise.js"></script>
+<script src="fixtures/hero-sb-straddled-oot.js"></script>
+<script src="fixtures/hero-bb-straddled-facing-raise.js"></script>
+<script src="fixtures/hero-flop-oot.js"></script>
+<script src="fixtures/host-board-flop.js"></script>
+<script src="fixtures/hero-next-hand-away.js"></script>
+<script src="fixtures/hero-raise-form-open.js"></script>
+<script src="fixtures/hero-folded-own-view.js"></script>
+<script src="fixtures/pre-deal-seated.js"></script>
+<script src="fixtures/between-hands-showdown.js"></script>
+<script src="fixtures/hero-with-waiting-player.js"></script>
+<script src="fixtures/dead-small-blind.js"></script>
+</head>
+<body>
+<pre id="results"></pre>
+<script>
+'use strict';
+(function () {
+  const out = [];
+  let failures = 0;
+  let checks = 0;
+
+  function parse(name) {
+    const html = globalThis.PNAF_FIXTURES && globalThis.PNAF_FIXTURES[name];
+    if (!html) throw new Error('fixture missing: ' + name);
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+  const label = (el) => (el ? el.textContent.trim() : null);
+  const seatStr = (s) => [s.seat, s.name, (s.dealtIn ? 'D' : '-') + (s.folded ? 'F' : ''), s.bet]
+    .concat(s.isHero ? ['H'] : []).concat(s.isCurrent ? ['C'] : []).join(':');
+  function summary(r) {
+    return {
+      heroSeat: r.heroSeat, heroCards: r.heroCards, cardsError: r.cardsError, board: r.board,
+      clockwise: r.clockwise, dealerSeat: r.dealerSeat, deadButton: r.deadButton, straddleSeat: r.straddleSeat,
+      blinds: r.blinds, variant: r.variant, heroTurn: r.heroTurn,
+      buttons: [label(r.buttons.fold), label(r.buttons.check), label(r.buttons.call), r.buttons.callAmount],
+      seats: r.seats.map(seatStr).join(' '), errors: r.errors, gameId: r.gameId,
+    };
+  }
+  function eq(name, field, got, want) {
+    checks++;
+    const g = JSON.stringify(got);
+    const w = JSON.stringify(want);
+    if (g !== w) { failures++; out.push('FAIL ' + name + ' ' + field + ': got ' + g + ' want ' + w); }
+  }
+  function expectRead(name, want, mutate) {
+    let r;
+    try {
+      const doc = parse(name.split('#')[0]);
+      if (mutate) mutate(doc);
+      r = summary(PNAF.dom.read(doc));
+    } catch (e) {
+      failures++; checks++; out.push('FAIL ' + name + ' threw ' + e.message); return;
+    }
+    for (const k of Object.keys(want)) eq(name, k, r[k], want[k]);
+    out.push('ran  ' + name);
+  }
+  const NOB = [null, null, null, null];
+  const BL = { sb: 0.5, bb: 0.5 };
+
+  // --- Live captures (0.50/0.50 NLH, 5 players; hero is always drawn at position 1) ---
+  expectRead('hero-turn-utg-unopened', {
+    heroSeat: 1, heroCards: ['9s', 'Ad'], cardsError: null, board: 0, clockwise: [1, 3, 5, 7, 9],
+    dealerSeat: 5, deadButton: false, straddleSeat: null, blinds: BL, variant: 'NLH', heroTurn: true,
+    buttons: ['Fold', null, 'Call 0.50', 0.5],
+    seats: '1:Hero:D:0:H:C 3:P9303:D:0 5:P9304:D:0 7:P9305:D:0.5 9:HostBot:D:0.5', errors: [], gameId: null,
+  });
+  expectRead('hero-btn-facing-raise', {
+    heroCards: ['2h', '5s'], dealerSeat: 1, straddleSeat: null, heroTurn: true, buttons: ['Fold', null, 'Call 2.00', 2],
+    seats: '1:Hero:D:0:H:C 3:P9303:D:0.5 5:P9304:D:0.5 7:P9305:D:2 9:HostBot:DF:0', errors: [],
+  });
+  expectRead('hero-sb-facing-raise', {
+    heroCards: ['Ah', '8d'], dealerSeat: 9, heroTurn: true, buttons: ['Fold', null, 'Call 1.50', 1.5],
+    seats: '1:Hero:D:0.5:H:C 3:P9303:D:0.5 5:P9304:D:2 7:P9305:DF:0 9:HostBot:DF:0', errors: [],
+  });
+  expectRead('hero-bb-facing-open', {
+    heroCards: ['Qc', 'Jd'], dealerSeat: 7, straddleSeat: null, heroTurn: true, buttons: ['Fold', null, 'Call 1.50', 1.5],
+    seats: '1:Hero:D:0.5:H:C 3:P9303:D:2 5:P9304:DF:0 7:P9305:DF:0 9:HostBot:DF:0.5', errors: [],
+  });
+  expectRead('hero-bb-free-check', {
+    heroCards: ['3d', 'Js'], board: 0, dealerSeat: 7, heroTurn: true, buttons: ['Fold', 'Check', null, null],
+    seats: '1:Hero:D:0.5:H:C 3:P9303:D:0.5 5:P9304:D:0.5 7:P9305:D:0.5 9:HostBot:D:0.5', errors: [],
+  });
+  expectRead('sb-free-check-host', {
+    heroSeat: 1, heroCards: ['Jc', 'Kd'], dealerSeat: 9, heroTurn: true, buttons: ['Fold', 'Check', null, null],
+    seats: '1:HostBot:D:0.5:H:C 3:Hero:D:0.5 5:P9303:D:0.5 7:P9304:D:0.5 9:P9305:D:0.5', errors: [],
+  });
+  expectRead('hero-turn-facing-raise-2nd', {
+    heroCards: ['Jc', '6s'], dealerSeat: 5, heroTurn: true, buttons: ['Fold', null, 'Call 1.50', 1.5],
+    seats: '1:Hero:D:0.5:H:C 3:P9303:DF:0 5:P9304:D:2 7:P9305:DF:0.5 9:HostBot:D:2', errors: [],
+  });
+  // Out of turn: the same Fold/Check/Call buttons exist as pre-action toggles; never exposed.
+  expectRead('hero-bb-oot-preactions', {
+    heroCards: ['3d', 'Js'], heroTurn: false, buttons: NOB,
+    seats: '1:Hero:D:0.5:H 3:P9303:D:0:C 5:P9304:D:0 7:P9305:D:0 9:HostBot:D:0.5', errors: [],
+  });
+  expectRead('hero-oot-after-raise', {
+    heroCards: ['Jc', '6s'], heroTurn: false, buttons: NOB, dealerSeat: 5,
+    seats: '1:Hero:D:0.5:H 3:P9303:DF:0 5:P9304:D:2 7:P9305:D:0.5:C 9:HostBot:D:0.5', errors: [],
+  });
+  expectRead('hero-sb-straddled-oot', {
+    heroCards: ['3s', '5h'], dealerSeat: 9, straddleSeat: 5, heroTurn: false, buttons: NOB,
+    seats: '1:Hero:D:0.5:H 3:P9303:D:0.5 5:P9304:D:1 7:P9305:D:0:C 9:HostBot:D:0', errors: [],
+  });
+  expectRead('hero-bb-straddled-facing-raise', {
+    heroCards: ['8c', 'Ac'], dealerSeat: 7, straddleSeat: 3, heroTurn: true, buttons: ['Fold', null, 'Call 2.50', 2.5],
+    seats: '1:Hero:D:0.5:H:C 3:P9303:D:1 5:P9304:D:3 7:P9305:DF:0 9:HostBot:DF:0.5', errors: [],
+  });
+  expectRead('hero-flop-oot', {
+    heroCards: ['3d', 'Js'], board: 3, heroTurn: false, buttons: NOB,
+    seats: '1:Hero:D:0:H 3:P9303:D:0 5:P9304:D:0 7:P9305:D:0 9:HostBot:D:0:C', errors: [],
+  });
+  // Post-flop the `call` slot reads "Bet 0.50": not a call.
+  expectRead('host-board-flop', {
+    heroCards: ['4s', '4d'], board: 3, dealerSeat: 7, heroTurn: true, buttons: ['Fold', 'Check', null, null],
+    seats: '1:HostBot:D:0:H:C 3:Hero:DF:0 5:P9303:DF:0 7:P9304:D:0 9:P9305:DF:0', errors: [],
+  });
+  // "Away" player (fold class + standing-up status) is not dealt in; "check" text in a bet slot = 0.
+  expectRead('hero-next-hand-away', {
+    heroCards: ['5c', '6h'], board: 3, dealerSeat: 5, heroTurn: true, buttons: ['Fold', 'Check', null, null],
+    seats: '1:Hero:D:0:H:C 3:P9303:D:0 5:P9304:D:0 7:P9305:-:0 9:HostBot:D:0', errors: [],
+  });
+  // Raise slider open: seat still decision-current but no "Your Turn" signal → not the hero's turn, no error.
+  expectRead('hero-raise-form-open', {
+    heroCards: ['7s', 'Ac'], dealerSeat: 1, heroTurn: false, buttons: NOB,
+    seats: '1:Hero:D:0:H:C 5:P9304:D:0.5 7:P9305:D:0.5 9:HostBot:D:0.5', errors: [],
+  });
+  // Hero folded in own view: cards stay drawn under a `fold` class.
+  expectRead('hero-folded-own-view', {
+    heroCards: ['7s', 'Ac'], heroTurn: false, buttons: NOB,
+    seats: '1:Hero:DF:0:H 5:P9304:D:0.5:C 7:P9305:D:0.5 9:HostBot:D:0.5', errors: [],
+  });
+  // Game stopped by the host: seated players, no cards, no button; empty seats are drawn too.
+  expectRead('pre-deal-seated', {
+    heroSeat: 1, heroCards: [], cardsError: null, board: 0, clockwise: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    dealerSeat: null, deadButton: false, straddleSeat: null, blinds: BL, variant: 'NLH', heroTurn: false, buttons: NOB,
+    seats: '1:Hero:-:0:H 5:P9304:-:0 7:P9305:-:0 9:HostBot:-:0', errors: [],
+  });
+  // Showdown: board and revealed cards still drawn, no decision panel.
+  expectRead('between-hands-showdown', {
+    heroCards: ['Th', '2h'], board: 5, dealerSeat: 5, heroTurn: false, buttons: NOB,
+    seats: '1:Hero:D:0:H 5:P9304:D:0 7:P9305:D:0 9:HostBot:D:0', errors: [],
+  });
+  // A player who sat down mid-hand ("In Next Hand" status) is not dealt in.
+  expectRead('hero-with-waiting-player', {
+    clockwise: [1, 3, 5, 7, 9], dealerSeat: 7, heroTurn: false,
+    seats: '1:Hero:D:0.5:H 3:P9303:-:0 5:P9304:D:0:C 7:P9305:D:0 9:HostBot:D:0.5', errors: [],
+  });
+  // Dead small blind (SB seat just vacated): button is live, only the BB posted; no table marker.
+  expectRead('dead-small-blind', {
+    dealerSeat: 1, deadButton: false, straddleSeat: null, clockwise: [1, 5, 7, 9],
+    seats: '1:Hero:D:0:H 5:P9304:D:0.5 7:P9305:D:0:C 9:HostBot:D:0', errors: [],
+  });
+
+  // --- Fail-safe mutations of real captures ---
+  expectRead('hero-turn-utg-unopened#card-text-mismatch', { heroCards: [], cardsError: 'card classes 9s disagree with text 8s' },
+    (d) => { d.querySelector('.you-player .card-container .value').textContent = '8'; });
+  expectRead('hero-turn-utg-unopened#face-down', { heroCards: [], cardsError: 'hero card face down' },
+    (d) => { const c = d.querySelectorAll('.you-player .card-container')[1]; c.className = 'card-container card-p2 med'; });
+  expectRead('hero-turn-utg-unopened#two-suits', { heroCards: [] },
+    (d) => { d.querySelector('.you-player .card-container').classList.add('card-h'); });
+  expectRead('hero-turn-utg-unopened#text-not-rendered', { heroCards: [], cardsError: 'card text not rendered yet' },
+    (d) => { d.querySelector('.you-player .card-container .card').textContent = ''; });
+  expectRead('hero-bb-free-check#signal-without-seat', { heroTurn: false, buttons: NOB, errors: ['turn signals disagree (seat false, panel true)'] },
+    (d) => { d.querySelector('.you-player').classList.remove('decision-current'); });
+  // Just acted: decision-current lingers on the hero while the panel is already empty (observed live, ~0.8 s).
+  expectRead('hero-bb-free-check#just-acted', { heroTurn: false, buttons: NOB, errors: [] },
+    (d) => { d.querySelector('.game-decisions-ctn').innerHTML = ''; });
+  expectRead('hero-bb-free-check#seat-without-signal', { heroTurn: false, buttons: NOB, errors: ['turn signals disagree (seat true, panel false)'] },
+    (d) => { d.querySelector('.action-signal').remove(); });
+  expectRead('hero-bb-free-check#low-panel', { heroTurn: false, buttons: NOB, errors: ['turn signal inside out-of-turn panel'] },
+    (d) => { d.querySelector('.game-decisions-ctn').classList.add('low'); });
+  expectRead('hero-bb-free-check#check-disabled', { heroTurn: true, buttons: ['Fold', null, null, null] },
+    (d) => { d.querySelector('.game-decisions-ctn button.check').disabled = true; });
+  // Just clicked: PokerNow disables every action button ~30 ms before the signal goes (observed live, 2026-11-19).
+  expectRead('hero-bb-free-check#submitting', { heroTurn: false, buttons: NOB, errors: [] },
+    (d) => { d.querySelectorAll('.game-decisions-ctn .action-buttons button').forEach((b) => { b.disabled = true; }); });
+  expectRead('hero-bb-facing-open#submitting', { heroTurn: false, buttons: NOB, errors: [] },
+    (d) => { d.querySelectorAll('.game-decisions-ctn .action-buttons button').forEach((b) => { b.disabled = true; }); });
+  expectRead('hero-bb-free-check#odd-fold-label', { buttons: [null, 'Check', null, null], errors: ['fold button label "Fold now"'] },
+    (d) => { d.querySelector('.game-decisions-ctn button.fold').textContent = 'Fold now'; });
+  expectRead('hero-bb-facing-open#odd-call-amount', { buttons: ['Fold', null, null, null], errors: ['call amount unreadable "Call 1.5k"'] },
+    (d) => { d.querySelector('.game-decisions-ctn button.call').textContent = 'Call 1.5k'; });
+  expectRead('hero-bb-facing-open#unreadable-bet', { errors: ['seat 3: unreadable bet "2.00 BB"'] },
+    (d) => { d.querySelector('.table-player-3 .normal-value').textContent = '2.00 BB'; });
+  expectRead('hero-bb-facing-open#comma-money', { seats: '1:Hero:D:0.5:H:C 3:P9303:D:1200 5:P9304:DF:0 7:P9305:DF:0 9:HostBot:DF:0.5', errors: [] },
+    (d) => { d.querySelector('.table-player-3 .normal-value').textContent = '1,200'; });
+  expectRead('hero-bb-facing-open#two-dealers', { dealerSeat: null, errors: ['2 dealer buttons'] },
+    (d) => { const b = d.querySelector('.dealer-button-ctn'); b.after(b.cloneNode(true)); });
+  expectRead('hero-bb-facing-open#dealer-on-empty-position', { dealerSeat: 8, deadButton: true },
+    (d) => { d.querySelector('.dealer-button-ctn').className = 'dealer-button-ctn dealer-position-8'; });
+  expectRead('hero-bb-facing-open#antes-header', { blinds: { sb: null, bb: null }, errors: ['blinds header has 3 values'] },
+    (d) => { const v = d.querySelector('.game-infos .blind-value .chips-value'); v.after(v.cloneNode(true)); });
+  expectRead('hero-bb-facing-open#plo', { variant: 'PLO' },
+    (d) => { d.querySelector('.game-infos .current-type').textContent = 'PLO'; });
+  expectRead('hero-bb-facing-open#spectator', { heroSeat: null, heroCards: [], heroTurn: false, buttons: NOB },
+    (d) => { d.querySelector('.you-player').classList.remove('you-player'); });
+  expectRead('hero-bb-facing-open#no-table', { heroSeat: null, seats: '', errors: ['table not found'] },
+    (d) => { d.querySelector('.table').remove(); });
+
+  // --- click() ---
+  (function () {
+    const doc = document.implementation.createHTMLDocument('x');
+    doc.body.innerHTML = PNAF_FIXTURES['hero-bb-free-check'];
+    document.body.appendChild(doc.body.firstElementChild); // live (connected) copy
+    try {
+      const snap = PNAF.dom.read(document);
+      let hits = 0;
+      if (!snap.buttons.check) throw new Error('no live check button to click');
+      snap.buttons.check.addEventListener('click', () => { hits++; });
+      eq('click', 'returns true', PNAF.dom.click(snap.buttons.check), true);
+      eq('click', 'handler ran', hits, 1);
+      eq('click', 'null', PNAF.dom.click(null), false);
+      const fold = snap.buttons.fold;
+      fold.disabled = true;
+      eq('click', 'disabled', PNAF.dom.click(fold), false);
+      const detached = document.createElement('button');
+      eq('click', 'detached', PNAF.dom.click(detached), false);
+      out.push('ran  click');
+    } catch (e) {
+      failures++; checks++; out.push('FAIL click threw ' + e.message);
+    } finally {
+      document.querySelector('.game-main-container').remove();
+    }
+  })();
+
+  const verdict = failures ? 'FAIL' : 'PASS';
+  out.unshift('PNAF-DOM-TESTS ' + verdict + ' ' + (checks - failures) + '/' + checks);
+  document.getElementById('results').textContent = out.join('\n');
+  document.body.setAttribute('data-result', verdict);
+  document.title = verdict;
+})();
+</script>
+</body>
+</html>

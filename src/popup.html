@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PokerNow Auto-Fold</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="../assets/icon48.png" alt="" width="24" height="24">
+    <h1>PokerNow Auto-Fold</h1>
+  </header>
+
+  <fieldset class="modes" id="modes">
+    <legend>Mode</legend>
+    <label><input type="radio" name="mode" value="off"><span>Off</span></label>
+    <label><input type="radio" name="mode" value="test"><span>Test</span></label>
+    <label><input type="radio" name="mode" value="live"><span>Live</span></label>
+  </fieldset>
+  <p class="mode-hint" id="mode-hint"></p>
+
+  <section class="status" aria-live="polite">
+    <h2>This tab</h2>
+    <p class="status-msg" id="status-msg">Checking…</p>
+    <dl id="status-list" hidden></dl>
+    <ul class="errors" id="status-errors" hidden></ul>
+  </section>
+
+  <button type="button" id="settings">Settings &amp; log</button>
+
+  <script src="ranges.js"></script>
+  <script src="defaults.js"></script>
+  <script src="storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "PokerNow Auto-Fold",
+  "version": "0.1.0",
+  "description": "Folds pre-flop Hold'em hands outside your playbook ranges on PokerNow, and alerts you when a decision is yours.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "notifications", "offscreen"],
+  "host_permissions": ["*://*.pokernow.com/*", "*://*.pokernow.club/*"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "PokerNow Auto-Fold",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "options_page": "src/options.html",
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.pokernow.com/*", "*://*.pokernow.club/*"],
+      "js": [
+        "src/ranges.js",
+        "src/defaults.js",
+        "src/situation.js",
+        "src/decide.js",
+        "src/tracker.js",
+        "src/storage.js",
+        "src/dom.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
